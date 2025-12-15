@@ -1,4 +1,4 @@
-<img src="Oyemi_Logo_Transparent_BG.png" alt="Oyemi Logo" width="300" align="right"/>
+<img src="Oyemi_Logo_white_BG.png" alt="Oyemi Logo" width="300" align="right"/>
 
 # Oyemi
 
@@ -18,8 +18,9 @@ Oyemi is a deterministic, high-performance semantic encoding library. It maps wo
 - **Deterministic Codes** - Same word always produces same codes
 - **Fast Lookups** - SQLite with memory mapping (~0.01ms per lookup)
 - **TRUE Synonym Finder** - Find synonyms using WordNet synset matching
+- **Antonym Detection** - Identify antonyms (happy/unhappy, good/bad) with low similarity
 - **Semantic Distance** - Calculate word similarity using codes
-- **Sentiment/Valence** - Built-in positive/negative classification (SentiWordNet)
+- **Sentiment/Valence** - Built-in positive/negative classification (SentiWordNet + antonym inference)
 - **Lemma Fallback** - Automatically handles word variations (running -> run)
 - **Polysemy Support** - Multiple codes for words with multiple meanings
 

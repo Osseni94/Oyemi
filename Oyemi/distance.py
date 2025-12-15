@@ -9,6 +9,7 @@ from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
 from .encoder import SemanticCode, Encoder
+from .storage import get_storage
 
 
 @dataclass
@@ -97,7 +98,8 @@ def word_distance(
     word1: str,
     word2: str,
     encoder: Optional[Encoder] = None,
-    method: str = "min"
+    method: str = "min",
+    check_antonyms: bool = True
 ) -> Tuple[float, DistanceResult]:
     """
     Calculate semantic distance between two words.
@@ -112,14 +114,33 @@ def word_distance(
         word2: Second word
         encoder: Encoder instance (uses default if None)
         method: Aggregation method ("min", "max", "avg")
+        check_antonyms: If True, check for antonym relationship (default: True)
 
     Returns:
         Tuple of (distance, best_result)
     """
     enc = encoder or Encoder()
 
-    codes1 = enc.encode(word1)
-    codes2 = enc.encode(word2)
+    # Check for antonym relationship first
+    if check_antonyms:
+        storage = get_storage()
+        if storage.are_antonyms(word1, word2):
+            # Antonyms have maximum distance (0.9 - leave some room for truly unrelated words)
+            codes1 = enc.encode(word1, raise_on_unknown=False)
+            codes2 = enc.encode(word2, raise_on_unknown=False)
+            if codes1 and codes2:
+                result = DistanceResult(
+                    code1=codes1[0],
+                    code2=codes2[0],
+                    distance=0.9,
+                    similarity=0.1,
+                    shared_superclass=True,  # Antonyms often share superclass
+                    same_pos=True  # Antonyms typically have same POS
+                )
+                return 0.9, result
+
+    codes1 = enc.encode(word1, raise_on_unknown=False)
+    codes2 = enc.encode(word2, raise_on_unknown=False)
 
     if not codes1 or not codes2:
         # One or both words unknown

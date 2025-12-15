@@ -187,6 +187,31 @@ class Encoder:
         """Total number of word-code mappings."""
         return self._storage.get_code_count()
 
+    def are_antonyms(self, word1: str, word2: str) -> bool:
+        """
+        Check if two words are antonyms.
+
+        Args:
+            word1: First word
+            word2: Second word
+
+        Returns:
+            True if words are antonyms
+        """
+        return self._storage.are_antonyms(word1, word2)
+
+    def get_antonyms(self, word: str) -> List[str]:
+        """
+        Get all antonyms for a word.
+
+        Args:
+            word: The word to find antonyms for
+
+        Returns:
+            List of antonym words
+        """
+        return self._storage.get_antonyms(word)
+
     def find_synonyms(
         self,
         word: str,

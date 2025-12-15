@@ -29,7 +29,7 @@ Code Format: HHHH-LLLLL-P-A-V
     V = Valence (0=neutral, 1=positive, 2=negative)
 """
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 __author__ = "Kaossara Osseni"
 
 # Core encoder
@@ -83,6 +83,15 @@ from .exceptions import (
     InvalidCodeError,
 )
 
+# Convenience functions for antonyms
+def are_antonyms(word1: str, word2: str) -> bool:
+    """Check if two words are antonyms."""
+    return Encoder().are_antonyms(word1, word2)
+
+def get_antonyms(word: str):
+    """Get all antonyms for a word."""
+    return Encoder().get_antonyms(word)
+
 __all__ = [
     # Version
     "__version__",
@@ -92,6 +101,8 @@ __all__ = [
     "SemanticCode",
     "encode",
     "find_synonyms",
+    "are_antonyms",
+    "get_antonyms",
 
     # Distance
     "code_distance",

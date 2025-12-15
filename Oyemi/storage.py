@@ -210,6 +210,49 @@ class LexiconStorage:
             )
             return sorted_synonyms[:limit]
 
+    def are_antonyms(self, word1: str, word2: str) -> bool:
+        """
+        Check if two words are antonyms according to WordNet.
+
+        Args:
+            word1: First word
+            word2: Second word
+
+        Returns:
+            True if words are antonyms, False otherwise
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT 1 FROM antonyms WHERE word = ? AND antonym = ? LIMIT 1",
+            (word1.lower(), word2.lower())
+        )
+        result = cursor.fetchone() is not None
+        cursor.close()
+        return result
+
+    def get_antonyms(self, word: str) -> List[str]:
+        """
+        Get all antonyms for a word.
+
+        Args:
+            word: The word to find antonyms for
+
+        Returns:
+            List of antonym words
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT antonym FROM antonyms WHERE word = ?",
+            (word.lower(),)
+        )
+        antonyms = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        return antonyms
+
     def get_word_count(self) -> int:
         """Get total number of unique words in the lexicon."""
         conn = self._get_connection()

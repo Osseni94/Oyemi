@@ -1,5 +1,5 @@
 """
-Oyemi Lexicon Builder v2.0
+Oyemi Lexicon Builder v3.0
 ==========================
 BUILD-TIME ONLY - Uses WordNet + SentiWordNet to generate the lexicon database.
 
@@ -7,6 +7,7 @@ IMPROVEMENTS:
 1. SentiWordNet for accurate valence detection
 2. Expanded superclass hierarchy (100+ categories)
 3. Lemmatization support for word variants
+4. NEW: Antonym extraction from WordNet for better similarity/valence
 
 Author: Kaossara Osseni
 """
@@ -530,9 +531,11 @@ def build_lexicon():
     """
     Build the improved lexicon database from WordNet + SentiWordNet.
     """
+    global OUTPUT_PATH
+
     print("=" * 70)
-    print("OYEMI LEXICON BUILDER v2.0")
-    print("With SentiWordNet + Expanded Hierarchy + Lemmatization")
+    print("OYEMI LEXICON BUILDER v3.0")
+    print("With SentiWordNet + Expanded Hierarchy + Lemmatization + Antonyms")
     print("Author: Kaossara Osseni")
     print("=" * 70)
 
@@ -541,8 +544,17 @@ def build_lexicon():
 
     # Delete existing database
     if OUTPUT_PATH.exists():
-        OUTPUT_PATH.unlink()
-        print(f"\nDeleted existing: {OUTPUT_PATH}")
+        try:
+            OUTPUT_PATH.unlink()
+            print(f"\nDeleted existing: {OUTPUT_PATH}")
+        except PermissionError:
+            # File is locked - use alternative path
+            import time
+            alt_path = OUTPUT_PATH.parent / f"lexicon_new_{int(time.time())}.db"
+            print(f"\nWARNING: Cannot delete {OUTPUT_PATH} (file locked)")
+            print(f"Building to: {alt_path}")
+            print(f"After build, manually replace the old file.")
+            OUTPUT_PATH = alt_path
 
     # Create database
     conn = sqlite3.connect(str(OUTPUT_PATH))
@@ -566,8 +578,19 @@ def build_lexicon():
         )
     """)
 
+    # IMPROVEMENT #4: Add antonyms table
+    cursor.execute("""
+        CREATE TABLE antonyms (
+            word TEXT NOT NULL,
+            antonym TEXT NOT NULL,
+            PRIMARY KEY (word, antonym)
+        )
+    """)
+
     cursor.execute("CREATE INDEX idx_word ON lexicon(word)")
     cursor.execute("CREATE INDEX idx_lemma ON lemmas(lemma)")
+    cursor.execute("CREATE INDEX idx_antonym_word ON antonyms(word)")
+    cursor.execute("CREATE INDEX idx_antonym_antonym ON antonyms(antonym)")
 
     print("\n[1/4] Processing WordNet synsets...")
 
@@ -588,6 +611,9 @@ def build_lexicon():
     # Stats
     valence_stats = {'positive': 0, 'negative': 0, 'neutral': 0}
     superclass_stats = defaultdict(int)
+
+    # IMPROVEMENT #4: Track antonym pairs
+    antonym_pairs: Set[Tuple[str, str]] = set()
 
     for synset in tqdm(all_synsets, desc="   Processing"):
         # Get superclass code (HHHH)
@@ -630,19 +656,101 @@ def build_lexicon():
                 if base_lemma != word:
                     lemma_mappings[word] = base_lemma
 
-    print(f"\n[2/4] Inserting {len(entries):,} word entries...")
+            # IMPROVEMENT #4: Extract antonyms from WordNet
+            for ant in lemma.antonyms():
+                ant_word = ant.name().lower().replace('_', ' ')
+                ant_clean = ant_word.replace(' ', '').replace('-', '')
+                if ant_clean.isalpha():
+                    # Store both directions
+                    antonym_pairs.add((word, ant_word))
+                    antonym_pairs.add((ant_word, word))
+
+    print(f"\n[2/5] Inserting {len(entries):,} word entries...")
     cursor.executemany(
         "INSERT OR IGNORE INTO lexicon (word, code) VALUES (?, ?)",
         entries
     )
 
-    print(f"\n[3/4] Inserting {len(lemma_mappings):,} lemma mappings...")
+    print(f"\n[3/5] Inserting {len(lemma_mappings):,} lemma mappings...")
     cursor.executemany(
         "INSERT OR IGNORE INTO lemmas (word, lemma) VALUES (?, ?)",
         list(lemma_mappings.items())
     )
 
+    print(f"\n[4/5] Inserting {len(antonym_pairs):,} antonym pairs...")
+    cursor.executemany(
+        "INSERT OR IGNORE INTO antonyms (word, antonym) VALUES (?, ?)",
+        list(antonym_pairs)
+    )
+
     conn.commit()
+
+    # IMPROVEMENT #4b: Fix valence using antonym relationships
+    print(f"\n[5/5] Fixing valence using antonym relationships...")
+
+    # Get all words with their valences
+    cursor.execute("SELECT word, code FROM lexicon")
+    word_codes = {}
+    for row in cursor.fetchall():
+        word, code = row
+        if word not in word_codes:
+            word_codes[word] = []
+        word_codes[word].append(code)
+
+    # For each antonym pair, if one has valence and other doesn't (or is wrong), fix it
+    valence_fixes = []
+    fixed_count = 0
+
+    for word1, word2 in antonym_pairs:
+        if word1 in word_codes and word2 in word_codes:
+            # Get primary valence of each
+            code1 = word_codes[word1][0]
+            code2 = word_codes[word2][0]
+            v1 = int(code1.split('-')[4])  # valence of word1
+            v2 = int(code2.split('-')[4])  # valence of word2
+
+            # If both have same non-neutral valence, one is wrong
+            # Antonyms should have opposite valence
+            if v1 == 1 and v2 == 1:  # Both positive - fix word2 to negative
+                for old_code in word_codes[word2]:
+                    parts = old_code.split('-')
+                    if parts[4] == '1':  # positive
+                        new_code = '-'.join(parts[:4] + ['2'])  # change to negative
+                        valence_fixes.append((new_code, word2, old_code))
+                        fixed_count += 1
+            elif v1 == 2 and v2 == 2:  # Both negative - fix word2 to positive
+                for old_code in word_codes[word2]:
+                    parts = old_code.split('-')
+                    if parts[4] == '2':  # negative
+                        new_code = '-'.join(parts[:4] + ['1'])  # change to positive
+                        valence_fixes.append((new_code, word2, old_code))
+                        fixed_count += 1
+            elif v1 == 0 and v2 != 0:  # word1 neutral, word2 has valence - fix word1
+                opposite = 2 if v2 == 1 else 1
+                for old_code in word_codes[word1]:
+                    parts = old_code.split('-')
+                    if parts[4] == '0':  # neutral
+                        new_code = '-'.join(parts[:4] + [str(opposite)])
+                        valence_fixes.append((new_code, word1, old_code))
+                        fixed_count += 1
+            elif v2 == 0 and v1 != 0:  # word2 neutral, word1 has valence - fix word2
+                opposite = 2 if v1 == 1 else 1
+                for old_code in word_codes[word2]:
+                    parts = old_code.split('-')
+                    if parts[4] == '0':  # neutral
+                        new_code = '-'.join(parts[:4] + [str(opposite)])
+                        valence_fixes.append((new_code, word2, old_code))
+                        fixed_count += 1
+
+    # Apply valence fixes
+    for new_code, word, old_code in valence_fixes:
+        cursor.execute(
+            "UPDATE lexicon SET code = ? WHERE word = ? AND code = ?",
+            (new_code, word, old_code)
+        )
+
+    conn.commit()
+    print(f"   Fixed {fixed_count} valence entries using antonym relationships")
 
     # Get statistics
     cursor.execute("SELECT COUNT(DISTINCT word) FROM lexicon")
@@ -654,9 +762,12 @@ def build_lexicon():
     cursor.execute("SELECT COUNT(DISTINCT code) FROM lexicon")
     code_count = cursor.fetchone()[0]
 
+    cursor.execute("SELECT COUNT(*) FROM antonyms")
+    antonym_count = cursor.fetchone()[0]
+
     conn.close()
 
-    print(f"\n[4/4] Build complete!")
+    print(f"\nBuild complete!")
 
     print("\n" + "=" * 70)
     print("BUILD SUMMARY")
@@ -666,6 +777,8 @@ def build_lexicon():
     print(f"Unique codes: {code_count:,}")
     print(f"Total mappings: {mapping_count:,}")
     print(f"Lemma mappings: {len(lemma_mappings):,}")
+    print(f"Antonym pairs: {antonym_count:,}")
+    print(f"Valence fixes: {fixed_count:,}")
     print(f"Avg codes/word: {mapping_count / word_count:.2f}")
 
     print(f"\nValence Distribution (SentiWordNet):")
@@ -701,8 +814,8 @@ def build_lexicon():
     conn.close()
 
     print("\n" + "=" * 70)
-    print("Lexicon v2.0 ready!")
-    print("Improvements: SentiWordNet valence + Expanded hierarchy + Lemmas")
+    print("Lexicon v3.0 ready!")
+    print("Improvements: SentiWordNet + Expanded hierarchy + Lemmas + Antonyms")
     print("=" * 70)
 
 
