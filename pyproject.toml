@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oyemi"
+version = "2.0.0"
+description = "Offline semantic numeric lexicon - deterministic word-to-code mapping"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Kaossara Osseni"}
+]
+keywords = [
+    "nlp",
+    "semantics",
+    "lexicon",
+    "wordnet",
+    "encoding",
+    "word-embedding",
+    "deterministic"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+]
+requires-python = ">=3.8"
+
+# ZERO runtime dependencies!
+dependencies = []
+
+[project.optional-dependencies]
+# Build-time dependencies (for generating the lexicon)
+build = [
+    "nltk>=3.8",
+    "tqdm>=4.60",
+]
+# Development dependencies
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Osseni94/Oyemi"
+Repository = "https://github.com/Osseni94/Oyemi.git"
+Issues = "https://github.com/Osseni94/Oyemi/issues"
+
+[tool.setuptools]
+packages = ["Oyemi"]
+
+[tool.setuptools.package-data]
+Oyemi = ["../data/*.db"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
