@@ -1,22 +1,16 @@
+<img src="Oyemi_Logo_Transparent_BG.png" alt="Oyemi Logo" width="300" align="right"/>
+
 # Oyemi
 
-<p align="center">
-  <img src="Oyemi_Logo_Transparent_BG.png" alt="Oyemi Logo" width="200"/>
-</p>
+<a href="https://github.com/Osseni94/Oyemi/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+<a href="https://pypi.org/project/oyemi/"><img src="https://img.shields.io/pypi/v/oyemi.svg" alt="PyPI"></a>
+<a href="https://pypi.org/project/oyemi/"><img src="https://img.shields.io/pypi/pyversions/oyemi.svg" alt="Python"></a>
 
-<p align="center">
-  <strong>Offline Semantic Numeric Lexicon</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Osseni94/Oyemi/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://pypi.org/project/oyemi/"><img src="https://img.shields.io/pypi/v/oyemi.svg" alt="PyPI"></a>
-  <a href="https://pypi.org/project/oyemi/"><img src="https://img.shields.io/pypi/pyversions/oyemi.svg" alt="Python"></a>
-</p>
-
----
+**Offline Semantic Numeric Lexicon**
 
 Oyemi is a deterministic, high-performance semantic encoding library. It maps words to numeric codes that capture semantic meaning, enabling fast similarity calculations and synonym discovery without neural networks.
+
+
 
 ## Key Features
 
