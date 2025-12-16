@@ -417,28 +417,205 @@ def get_valence_sentiwordnet(synset) -> int:
     """
     Get valence using SentiWordNet scores.
     Returns: 0=neutral, 1=positive, 2=negative
+
+    FIXED: Compare pos vs neg FIRST to handle words with both scores.
     """
     try:
         senti = swn.senti_synset(synset.name())
         pos_score = senti.pos_score()
         neg_score = senti.neg_score()
 
-        # Strong negative
-        if neg_score >= 0.25:
-            return 2
-        # Strong positive
-        elif pos_score >= 0.25:
-            return 1
-        # Weak signals - check which is stronger
-        elif neg_score > pos_score and neg_score >= 0.1:
-            return 2
-        elif pos_score > neg_score and pos_score >= 0.1:
-            return 1
+        # FIXED: Compare which is stronger FIRST
+        # This handles cases like "thankful" (pos=0.50, neg=0.25)
+        if pos_score > neg_score:
+            # Positive is stronger
+            if pos_score >= 0.25:
+                return 1  # positive
+            elif pos_score >= 0.1:
+                return 1  # weak positive
+            else:
+                return 0  # neutral
+        elif neg_score > pos_score:
+            # Negative is stronger
+            if neg_score >= 0.25:
+                return 2  # negative
+            elif neg_score >= 0.1:
+                return 2  # weak negative
+            else:
+                return 0  # neutral
         else:
-            return 0  # neutral
+            # Equal scores (rare) - neutral
+            return 0
 
     except Exception:
         return 0  # neutral if lookup fails
+
+
+# Known sentiment overrides for words SentiWordNet gets wrong
+# Expanded to ~150 words for production accuracy
+VALENCE_OVERRIDES = {
+    # =========================================================================
+    # POSITIVE WORDS (valence = 1)
+    # =========================================================================
+
+    # Emotions - Positive
+    'excited': 1, 'exciting': 1, 'excitement': 1,
+    'delighted': 1, 'delightful': 1, 'delight': 1,
+    'thankful': 1, 'grateful': 1, 'gratitude': 1,
+    'magnificent': 1, 'wonderful': 1, 'marvelous': 1,
+    'amazing': 1, 'awesome': 1, 'fantastic': 1,
+    'excellent': 1, 'outstanding': 1, 'exceptional': 1,
+    'thrilled': 1, 'enthusiastic': 1, 'enthusiasm': 1,
+    'eager': 1, 'optimistic': 1, 'optimism': 1,
+    'joyful': 1, 'joyous': 1, 'cheerful': 1,
+    'pleased': 1, 'pleasant': 1, 'pleasure': 1,
+    'hopeful': 1, 'hope': 1, 'hoping': 1,
+    'confident': 1, 'confidence': 1,
+    'proud': 1, 'pride': 1,
+    'content': 1, 'contented': 1, 'contentment': 1,
+    'relieved': 1, 'relief': 1,
+    'inspired': 1, 'inspiring': 1, 'inspiration': 1,
+
+    # Actions - Positive
+    'succeed': 1, 'success': 1, 'successful': 1,
+    'achieve': 1, 'achievement': 1, 'achieving': 1,
+    'accomplish': 1, 'accomplishment': 1, 'accomplished': 1,
+    'flourish': 1, 'flourishing': 1,
+    'thrive': 1, 'thriving': 1,
+    'improve': 1, 'improvement': 1, 'improving': 1,
+    'enhance': 1, 'enhancement': 1, 'enhanced': 1,
+    'boost': 1, 'boosted': 1, 'boosting': 1,
+    'empower': 1, 'empowered': 1, 'empowering': 1,
+    'strengthen': 1, 'strengthened': 1,
+    'win': 1, 'winning': 1, 'winner': 1,
+    'reward': 1, 'rewarded': 1, 'rewarding': 1,
+
+    # Qualities - Positive
+    'great': 1, 'good': 1, 'best': 1, 'better': 1,
+    'beautiful': 1, 'brilliant': 1, 'superb': 1,
+    'kind': 1, 'kindness': 1,
+    'generous': 1, 'generosity': 1,
+    'honest': 1, 'honesty': 1,
+    'loyal': 1, 'loyalty': 1,
+    'brave': 1, 'bravery': 1, 'courage': 1, 'courageous': 1,
+    'wise': 1, 'wisdom': 1,
+    'talented': 1, 'talent': 1,
+    'creative': 1, 'creativity': 1,
+    'innovative': 1, 'innovation': 1,
+    'efficient': 1, 'efficiency': 1,
+    'productive': 1, 'productivity': 1,
+    'reliable': 1, 'reliability': 1,
+
+    # Workplace - Positive
+    'promoted': 1, 'promotion': 1,
+    'recognized': 1, 'recognition': 1,
+    'appreciated': 1, 'appreciation': 1,
+    'valued': 1, 'valuable': 1,
+    'engaged': 1, 'engagement': 1,
+    'motivated': 1, 'motivation': 1,
+    'fulfilled': 1, 'fulfilling': 1, 'fulfillment': 1,
+    'satisfied': 1, 'satisfaction': 1,
+    'hired': 1, 'hiring': 1,
+
+    # =========================================================================
+    # NEGATIVE WORDS (valence = 2)
+    # =========================================================================
+
+    # Emotions - Negative
+    'angry': 2, 'anger': 2, 'angered': 2,
+    'fear': 2, 'fearful': 2, 'afraid': 2, 'scared': 2,
+    'anxious': 2, 'anxiety': 2,
+    'worried': 2, 'worry': 2, 'worrying': 2,
+    'stressed': 2, 'stress': 2, 'stressful': 2,
+    'depressed': 2, 'depression': 2, 'depressing': 2,
+    'miserable': 2, 'misery': 2,
+    'terrible': 2, 'horrible': 2, 'awful': 2, 'dreadful': 2,
+    'frustrated': 2, 'frustration': 2, 'frustrating': 2,
+    'disappointed': 2, 'disappointment': 2, 'disappointing': 2,
+    'disgusted': 2, 'disgust': 2, 'disgusting': 2,
+    'unhappy': 2, 'unhappiness': 2,
+    'upset': 2, 'upsetting': 2,
+    'annoyed': 2, 'annoying': 2, 'annoyance': 2,
+    'bitter': 2, 'bitterness': 2,
+    'resentful': 2, 'resentment': 2,
+    'hopeless': 2, 'hopelessness': 2,
+    'desperate': 2, 'desperation': 2, 'despair': 2,
+
+    # Actions - Negative
+    'fail': 2, 'failure': 2, 'failed': 2, 'failing': 2,
+    'destroy': 2, 'destruction': 2, 'destroyed': 2, 'destroying': 2,
+    'damage': 2, 'damaged': 2, 'damaging': 2,
+    'harm': 2, 'harmed': 2, 'harmful': 2, 'harming': 2,
+    'hurt': 2, 'hurting': 2, 'hurtful': 2,
+    'ruin': 2, 'ruined': 2, 'ruining': 2,
+    'decline': 2, 'declining': 2, 'declined': 2,
+    'deteriorate': 2, 'deteriorating': 2, 'deterioration': 2,
+    'collapse': 2, 'collapsed': 2, 'collapsing': 2,
+    'crash': 2, 'crashed': 2, 'crashing': 2,
+    'struggle': 2, 'struggling': 2, 'struggled': 2,
+    'suffer': 2, 'suffering': 2, 'suffered': 2,
+    'lose': 2, 'losing': 2, 'lost': 2, 'loss': 2,
+
+    # Qualities - Negative
+    'bad': 2, 'worse': 2, 'worst': 2,
+    'cruel': 2, 'cruelty': 2,
+    'dishonest': 2, 'dishonesty': 2,
+    'lazy': 2, 'laziness': 2,
+    'incompetent': 2, 'incompetence': 2,
+    'unreliable': 2,
+    'toxic': 2, 'toxicity': 2,
+    'hostile': 2, 'hostility': 2,
+    'aggressive': 2, 'aggression': 2,
+    'abusive': 2, 'abuse': 2,
+    'corrupt': 2, 'corruption': 2,
+    'deceitful': 2, 'deceit': 2,
+    'pathetic': 2,
+    'worthless': 2,
+    'useless': 2,
+    'terrible': 2,
+
+    # Workplace - Negative
+    'fired': 2, 'firing': 2,
+    'laid-off': 2, 'layoff': 2, 'layoffs': 2,
+    'demoted': 2, 'demotion': 2,
+    'underpaid': 2,
+    'overworked': 2,
+    'burnout': 2,
+    'micromanaged': 2, 'micromanagement': 2,
+    'exploited': 2, 'exploitation': 2,
+    'ignored': 2,
+    'undervalued': 2,
+    'dismissed': 2, 'dismissal': 2,
+    'terminated': 2, 'termination': 2,
+    'resignation': 2,
+    'quit': 2, 'quitting': 2,
+    'downsized': 2, 'downsizing': 2,
+    'restructured': 2, 'restructuring': 2,
+
+    # HR/Workplace Issues
+    'discrimination': 2,
+    'harassment': 2, 'harassed': 2,
+    'retaliation': 2,
+    'favoritism': 2,
+    'nepotism': 2,
+    'bullying': 2, 'bullied': 2,
+    'intimidation': 2, 'intimidated': 2,
+    'unfair': 2, 'unfairness': 2,
+    'unjust': 2, 'injustice': 2,
+}
+
+
+def get_valence_with_override(synset, word: str) -> int:
+    """
+    Get valence with manual override for known problematic words.
+    """
+    # Check override first
+    word_lower = word.lower()
+    if word_lower in VALENCE_OVERRIDES:
+        return VALENCE_OVERRIDES[word_lower]
+
+    # Fall back to SentiWordNet
+    return get_valence_sentiwordnet(synset)
 
 
 # =============================================================================
@@ -646,8 +823,11 @@ def build_lexicon():
             if not clean_word.isalpha():
                 continue
 
+            # FIXED: Use word-level override for valence
+            word_valence = get_valence_with_override(synset, word)
+
             # Build code: HHHH-LLLLL-P-A-V
-            code = f"{superclass}-{local_id}-{pos}-{abstractness}-{valence}"
+            code = f"{superclass}-{local_id}-{pos}-{abstractness}-{word_valence}"
             entries.append((word, code))
 
             # IMPROVEMENT #3: Store lemma mapping for variants
@@ -686,6 +866,7 @@ def build_lexicon():
     conn.commit()
 
     # IMPROVEMENT #4b: Fix valence using antonym relationships
+    # FIXED: Skip words that have manual overrides
     print(f"\n[5/5] Fixing valence using antonym relationships...")
 
     # Get all words with their valences
@@ -700,32 +881,25 @@ def build_lexicon():
     # For each antonym pair, if one has valence and other doesn't (or is wrong), fix it
     valence_fixes = []
     fixed_count = 0
+    skipped_overrides = 0
 
     for word1, word2 in antonym_pairs:
         if word1 in word_codes and word2 in word_codes:
+            # FIXED: Skip words with manual overrides - don't change them
+            if word1.lower() in VALENCE_OVERRIDES or word2.lower() in VALENCE_OVERRIDES:
+                skipped_overrides += 1
+                continue
+
             # Get primary valence of each
             code1 = word_codes[word1][0]
             code2 = word_codes[word2][0]
             v1 = int(code1.split('-')[4])  # valence of word1
             v2 = int(code2.split('-')[4])  # valence of word2
 
-            # If both have same non-neutral valence, one is wrong
-            # Antonyms should have opposite valence
-            if v1 == 1 and v2 == 1:  # Both positive - fix word2 to negative
-                for old_code in word_codes[word2]:
-                    parts = old_code.split('-')
-                    if parts[4] == '1':  # positive
-                        new_code = '-'.join(parts[:4] + ['2'])  # change to negative
-                        valence_fixes.append((new_code, word2, old_code))
-                        fixed_count += 1
-            elif v1 == 2 and v2 == 2:  # Both negative - fix word2 to positive
-                for old_code in word_codes[word2]:
-                    parts = old_code.split('-')
-                    if parts[4] == '2':  # negative
-                        new_code = '-'.join(parts[:4] + ['1'])  # change to positive
-                        valence_fixes.append((new_code, word2, old_code))
-                        fixed_count += 1
-            elif v1 == 0 and v2 != 0:  # word1 neutral, word2 has valence - fix word1
+            # Only fix neutral words based on their antonym's valence
+            # Don't flip non-neutral words - they might both be correct
+            # (e.g., "good" and "evil" are both valid sentiment words)
+            if v1 == 0 and v2 != 0:  # word1 neutral, word2 has valence - fix word1
                 opposite = 2 if v2 == 1 else 1
                 for old_code in word_codes[word1]:
                     parts = old_code.split('-')
@@ -751,6 +925,25 @@ def build_lexicon():
 
     conn.commit()
     print(f"   Fixed {fixed_count} valence entries using antonym relationships")
+    print(f"   Skipped {skipped_overrides} override-protected words")
+
+    # FINAL STEP: Force-apply manual overrides to ensure they take effect
+    print(f"\n[6/6] Applying {len(VALENCE_OVERRIDES)} manual valence overrides...")
+    override_count = 0
+    for word, correct_valence in VALENCE_OVERRIDES.items():
+        cursor.execute("SELECT code FROM lexicon WHERE word = ?", (word,))
+        codes = cursor.fetchall()
+        for (old_code,) in codes:
+            parts = old_code.split('-')
+            if int(parts[4]) != correct_valence:
+                new_code = '-'.join(parts[:4] + [str(correct_valence)])
+                cursor.execute(
+                    "UPDATE lexicon SET code = ? WHERE word = ? AND code = ?",
+                    (new_code, word, old_code)
+                )
+                override_count += 1
+    conn.commit()
+    print(f"   Applied {override_count} valence overrides")
 
     # Get statistics
     cursor.execute("SELECT COUNT(DISTINCT word) FROM lexicon")

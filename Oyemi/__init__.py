@@ -29,7 +29,7 @@ Code Format: HHHH-LLLLL-P-A-V
     V = Valence (0=neutral, 1=positive, 2=negative)
 """
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 __author__ = "Kaossara Osseni"
 
 # Core encoder
