@@ -6,10 +6,56 @@ Provides deterministic word-to-code mapping via SQLite lookups.
 """
 
 from typing import List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .storage import LexiconStorage, get_storage
 from .exceptions import UnknownWordError, InvalidCodeError
+
+
+@dataclass
+class TextAnalysis:
+    """
+    Result of text valence analysis.
+
+    Contains word counts, valence breakdown, and overall score.
+    """
+
+    total_words: int
+    analyzed_words: int
+    positive_words: List[str] = field(default_factory=list)
+    negative_words: List[str] = field(default_factory=list)
+    neutral_words: List[str] = field(default_factory=list)
+    unknown_words: List[str] = field(default_factory=list)
+    valence_score: float = 0.0
+    positive_pct: float = 0.0
+    negative_pct: float = 0.0
+    neutral_pct: float = 0.0
+
+    @property
+    def sentiment(self) -> str:
+        """Human-readable sentiment label."""
+        if self.valence_score > 0.1:
+            return "positive"
+        elif self.valence_score < -0.1:
+            return "negative"
+        else:
+            return "neutral"
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "total_words": self.total_words,
+            "analyzed_words": self.analyzed_words,
+            "positive_words": self.positive_words,
+            "negative_words": self.negative_words,
+            "neutral_words": self.neutral_words,
+            "unknown_words": self.unknown_words,
+            "valence_score": round(self.valence_score, 4),
+            "positive_pct": round(self.positive_pct, 2),
+            "negative_pct": round(self.negative_pct, 2),
+            "neutral_pct": round(self.neutral_pct, 2),
+            "sentiment": self.sentiment,
+        }
 
 
 @dataclass
@@ -253,6 +299,93 @@ class Encoder:
             word, limit, pos_lock, abstractness_lock, return_weighted
         )
 
+    def analyze_text(
+        self,
+        text: str,
+        min_word_length: int = 3,
+        include_unknown: bool = True
+    ) -> TextAnalysis:
+        """
+        Analyze the valence of a text string.
+
+        Extracts words, looks up their valence, and computes an overall
+        sentiment score. No external dependencies required.
+
+        Args:
+            text: The text to analyze
+            min_word_length: Minimum word length to include (default: 3)
+            include_unknown: Include unknown words in result (default: True)
+
+        Returns:
+            TextAnalysis object with valence breakdown and score
+
+        Example:
+            >>> enc = Encoder()
+            >>> result = enc.analyze_text("I feel hopeful but anxious")
+            >>> result.valence_score
+            0.0
+            >>> result.positive_words
+            ['hopeful']
+            >>> result.negative_words
+            ['anxious']
+        """
+        # Extract words (dependency-free tokenization)
+        words = []
+        for token in text.lower().split():
+            clean = ''.join(c for c in token if c.isalpha())
+            if len(clean) >= min_word_length:
+                words.append(clean)
+
+        positive_words = []
+        negative_words = []
+        neutral_words = []
+        unknown_words = []
+
+        for word in words:
+            if not self.contains(word):
+                if include_unknown:
+                    unknown_words.append(word)
+                continue
+
+            try:
+                parsed = self.encode_parsed(word, raise_on_unknown=False)
+                if parsed:
+                    valence = parsed[0].valence
+                    if valence == 1:
+                        positive_words.append(word)
+                    elif valence == 2:
+                        negative_words.append(word)
+                    else:
+                        neutral_words.append(word)
+            except Exception:
+                if include_unknown:
+                    unknown_words.append(word)
+
+        # Calculate metrics
+        analyzed = len(positive_words) + len(negative_words) + len(neutral_words)
+
+        if analyzed > 0:
+            pos_pct = len(positive_words) / analyzed * 100
+            neg_pct = len(negative_words) / analyzed * 100
+            neu_pct = len(neutral_words) / analyzed * 100
+            valence_score = (len(positive_words) - len(negative_words)) / analyzed
+        else:
+            pos_pct = neg_pct = neu_pct = 0.0
+            valence_score = 0.0
+
+        return TextAnalysis(
+            total_words=len(words),
+            analyzed_words=analyzed,
+            positive_words=positive_words,
+            negative_words=negative_words,
+            neutral_words=neutral_words,
+            unknown_words=unknown_words,
+            valence_score=valence_score,
+            positive_pct=pos_pct,
+            negative_pct=neg_pct,
+            neutral_pct=neu_pct,
+        )
+
 
 # Convenience function for simple usage
 def encode(word: str) -> List[str]:
@@ -271,3 +404,19 @@ def encode(word: str) -> List[str]:
         UnknownWordError: If word not in lexicon
     """
     return Encoder().encode(word)
+
+
+def analyze_text(text: str, min_word_length: int = 3) -> TextAnalysis:
+    """
+    Analyze the valence of a text string.
+
+    Convenience function using the default encoder.
+
+    Args:
+        text: The text to analyze
+        min_word_length: Minimum word length to include (default: 3)
+
+    Returns:
+        TextAnalysis object with valence breakdown and score
+    """
+    return Encoder().analyze_text(text, min_word_length)

@@ -29,14 +29,16 @@ Code Format: HHHH-LLLLL-P-A-V
     V = Valence (0=neutral, 1=positive, 2=negative)
 """
 
-__version__ = "3.0.1"
+__version__ = "3.2.0"
 __author__ = "Kaossara Osseni"
 
 # Core encoder
 from .encoder import (
     Encoder,
     SemanticCode,
+    TextAnalysis,
     encode,
+    analyze_text,
 )
 
 # Convenience function for synonyms
@@ -99,7 +101,9 @@ __all__ = [
     # Core
     "Encoder",
     "SemanticCode",
+    "TextAnalysis",
     "encode",
+    "analyze_text",
     "find_synonyms",
     "are_antonyms",
     "get_antonyms",
