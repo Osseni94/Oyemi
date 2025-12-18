@@ -78,8 +78,9 @@ class LexiconStorage:
         word_lower = word.lower()
 
         # Direct lookup (case-insensitive)
+        # FIXED: ORDER BY priority DESC to return most common sense first
         cursor.execute(
-            "SELECT code FROM lexicon WHERE word = ? COLLATE NOCASE",
+            "SELECT code FROM lexicon WHERE word = ? COLLATE NOCASE ORDER BY priority DESC",
             (word_lower,)
         )
         results = [row[0] for row in cursor.fetchall()]
@@ -95,8 +96,9 @@ class LexiconStorage:
 
             if lemma_row:
                 # Look up the lemma instead
+                # FIXED: ORDER BY priority DESC to return most common sense first
                 cursor.execute(
-                    "SELECT code FROM lexicon WHERE word = ? COLLATE NOCASE",
+                    "SELECT code FROM lexicon WHERE word = ? COLLATE NOCASE ORDER BY priority DESC",
                     (lemma_row[0],)
                 )
                 results = [row[0] for row in cursor.fetchall()]

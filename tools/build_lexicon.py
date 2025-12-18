@@ -738,10 +738,12 @@ def build_lexicon():
     cursor = conn.cursor()
 
     # Create schema with lemma support
+    # FIXED: Added priority column for sense ordering
     cursor.execute("""
         CREATE TABLE lexicon (
             word TEXT NOT NULL,
             code TEXT NOT NULL,
+            priority INTEGER DEFAULT 0,
             PRIMARY KEY (word, code)
         )
     """)
@@ -774,8 +776,8 @@ def build_lexicon():
     # Track synset IDs per superclass
     superclass_counters: Dict[str, int] = defaultdict(int)
 
-    # Track all entries
-    entries: List[Tuple[str, str]] = []
+    # Track all entries: (word, code, priority)
+    entries: List[Tuple[str, str, int]] = []
 
     # Initialize lemmatizer for improvement #3
     lemmatizer = WordNetLemmatizer()
@@ -792,7 +794,12 @@ def build_lexicon():
     # IMPROVEMENT #4: Track antonym pairs
     antonym_pairs: Set[Tuple[str, str]] = set()
 
+    # Track synset index for priority calculation
+    synset_index = 0
+
     for synset in tqdm(all_synsets, desc="   Processing"):
+        synset_index += 1
+
         # Get superclass code (HHHH)
         superclass = get_superclass_code(synset)
         superclass_stats[superclass] += 1
@@ -815,7 +822,7 @@ def build_lexicon():
         valence_stats[valence_names[valence]] += 1
 
         # Process each lemma (word form)
-        for lemma in synset.lemmas():
+        for lemma_idx, lemma in enumerate(synset.lemmas()):
             word = lemma.name().lower().replace('_', ' ')
 
             # Skip words with special characters (except hyphen and space)
@@ -828,7 +835,20 @@ def build_lexicon():
 
             # Build code: HHHH-LLLLL-P-A-V
             code = f"{superclass}-{local_id}-{pos}-{abstractness}-{word_valence}"
-            entries.append((word, code))
+
+            # FIXED: Calculate priority for sense ordering
+            # Higher priority = should be returned first
+            # Priority factors:
+            # 1. WordNet lemma frequency (lemma.count()) - most important
+            # 2. Specific superclass (not 0999/2999/3999/4999) gets bonus
+            # 3. Earlier lemma in synset gets small bonus
+            lemma_freq = lemma.count()  # WordNet corpus frequency
+            superclass_bonus = 0 if superclass.endswith('999') else 10000
+            lemma_order_bonus = max(0, 10 - lemma_idx)  # First lemma gets +10
+
+            priority = lemma_freq + superclass_bonus + lemma_order_bonus
+
+            entries.append((word, code, priority))
 
             # IMPROVEMENT #3: Store lemma mapping for variants
             if ' ' not in word and '-' not in word:
@@ -847,9 +867,12 @@ def build_lexicon():
 
     print(f"\n[2/5] Inserting {len(entries):,} word entries...")
     cursor.executemany(
-        "INSERT OR IGNORE INTO lexicon (word, code) VALUES (?, ?)",
+        "INSERT OR IGNORE INTO lexicon (word, code, priority) VALUES (?, ?, ?)",
         entries
     )
+
+    # Create index on priority for fast ordering
+    cursor.execute("CREATE INDEX idx_priority ON lexicon(word, priority DESC)")
 
     print(f"\n[3/5] Inserting {len(lemma_mappings):,} lemma mappings...")
     cursor.executemany(
