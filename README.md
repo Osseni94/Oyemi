@@ -5,6 +5,8 @@
 <a href="https://github.com/Osseni94/Oyemi/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 <a href="https://pypi.org/project/oyemi/"><img src="https://img.shields.io/pypi/v/oyemi.svg" alt="PyPI"></a>
 <a href="https://pypi.org/project/oyemi/"><img src="https://img.shields.io/pypi/pyversions/oyemi.svg" alt="Python"></a>
+<a href="https://pepy.tech/project/oyemi"><img src="https://static.pepy.tech/badge/oyemi" alt="Downloads"></a>
+<a href="https://pepy.tech/project/oyemi"><img src="https://static.pepy.tech/badge/oyemi/month" alt="Monthly Downloads"></a>
 
 **Offline Semantic Numeric Lexicon**
 
